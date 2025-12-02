@@ -11,7 +11,7 @@ import pyautogui
 from pynput import keyboard
 
 # For update checks
-VERSION = "1.3"
+VERSION = "1.4"
 print(f"Running on version {VERSION}")
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "settings.json")
@@ -48,9 +48,10 @@ cps_test_duration = 5
 cps_result_var = None
 cps_timer_var = None
 
-# ========= Settings / Always on top / Theme =========
+# ========= Settings / Always on top / Theme / Auto update =========
 always_on_top_var = None
 theme_mode_var = None  # "system", "light", "dark"
+auto_update_var = None  # bool: automatically check for updates on launch
 
 
 # ========= Settings save/load =========
@@ -79,6 +80,7 @@ def save_settings():
             "cps_duration": cps_duration_spin.get(),
             "always_on_top": always_on_top_var.get(),
             "theme_mode": theme_mode_var.get(),
+            "auto_update": auto_update_var.get(),
             "selected_tab": notebook.index(notebook.select()),
         }
         with open(CONFIG_PATH, "w") as f:
@@ -517,12 +519,16 @@ def countdown_cps(remaining):
         root.after(1000, lambda: countdown_cps(remaining - 1))
 
 
-# ========= Settings / Always on top ==========
+# ========= Settings helpers ==========
 def apply_always_on_top():
     if always_on_top_var.get():
         root.attributes("-topmost", True)
     else:
         root.attributes("-topmost", False)
+    save_settings()
+
+
+def apply_auto_update():
     save_settings()
 
 
@@ -905,6 +911,7 @@ settings_frame = tk.Frame(notebook)
 notebook.add(settings_frame, text="Settings")
 
 always_on_top_var = tk.BooleanVar(value=False)
+auto_update_var = tk.BooleanVar(value=False)
 
 always_check = tk.Checkbutton(
     settings_frame,
@@ -912,7 +919,15 @@ always_check = tk.Checkbutton(
     variable=always_on_top_var,
     command=apply_always_on_top,
 )
-always_check.pack(pady=10, anchor="w", padx=10)
+always_check.pack(pady=(10, 4), anchor="w", padx=10)
+
+auto_update_check = tk.Checkbutton(
+    settings_frame,
+    text="Automatically check for updates on launch",
+    variable=auto_update_var,
+    command=apply_auto_update,
+)
+auto_update_check.pack(pady=(0, 10), anchor="w", padx=10)
 
 theme_mode_var = tk.StringVar(value="system")
 
@@ -936,7 +951,7 @@ def on_theme_change(event=None):
 
 theme_combo.bind("<<ComboboxSelected>>", on_theme_change)
 
-update_button = tk.Button(settings_frame, text="Check for updates", command=check_for_updates)
+update_button = tk.Button(settings_frame, text="Check for updates now", command=check_for_updates)
 update_button.pack(pady=4, anchor="w", padx=10)
 
 # ----- Status label + Quit button -----
@@ -1012,6 +1027,10 @@ if "always_on_top" in settings:
     always_on_top_var.set(settings["always_on_top"])
     apply_always_on_top()
 
+# Restore auto update
+if "auto_update" in settings:
+    auto_update_var.set(settings["auto_update"])
+
 # Apply theme after widgets exist
 apply_theme()
 
@@ -1037,5 +1056,9 @@ start_hold_listener(_hotkey_from_entry(hold_hotkey_entry, "<f7>"))
 update_status()
 
 root.protocol("WM_DELETE_WINDOW", on_close)
+
+# Auto-check for updates on launch if enabled
+if auto_update_var.get():
+    root.after(2000, check_for_updates)  # wait 2 seconds so window is visible
 
 root.mainloop()
