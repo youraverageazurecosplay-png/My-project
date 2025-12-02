@@ -11,7 +11,7 @@ import pyautogui
 from pynput import keyboard
 
 # For update checks
-VERSION = "1.0"
+VERSION = "1.1"
 print(f"Running on version {VERSION}")
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "settings.json")
