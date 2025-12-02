@@ -11,7 +11,7 @@ import pyautogui
 from pynput import keyboard
 
 # For update checks
-VERSION = "1.0"
+VERSION = "1.5"
 print(f"Running on version {VERSION}")
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "settings.json")
@@ -86,7 +86,6 @@ def save_settings():
             "auto_update": auto_update_var.get(),
             "selected_tab": notebook.index(notebook.select()),
         }
-        # Save notepad contents if widget exists
         if notepad_text_widget is not None:
             data["notepad_text"] = notepad_text_widget.get("1.0", "end-1c")
         with open(CONFIG_PATH, "w") as f:
