@@ -11,7 +11,7 @@ import pyautogui
 from pynput import keyboard
 
 # For update checks
-VERSION = "1.5"
+VERSION = "1.0"
 print(f"Running on version {VERSION}")
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "settings.json")
@@ -48,27 +48,13 @@ cps_test_duration = 5
 cps_result_var = None
 cps_timer_var = None
 
-# ----- Notepad tab -----
-notepad_frame = tk.Frame(notebook)
-notebook.add(notepad_frame, text="Notepad")
-
-notepad_label = tk.Label(notepad_frame, text="Simple notepad for random notes:")
-notepad_label.pack(pady=(10, 5))
-
-notepad_text = tk.Text(notepad_frame, wrap="word", height=12)
-notepad_text.pack(fill="both", expand=True, padx=8, pady=4)
-
-def clear_notepad():
-    notepad_text.delete("1.0", tk.END)
-
-clear_notepad_button = tk.Button(notepad_frame, text="Clear notepad", command=clear_notepad)
-clear_notepad_button.pack(pady=4)
-
-
 # ========= Settings / Always on top / Theme / Auto update =========
 always_on_top_var = None
 theme_mode_var = None  # "system", "light", "dark"
 auto_update_var = None  # bool: automatically check for updates on launch
+
+# ========= Notepad state =========
+notepad_text_widget = None  # will hold Text widget
 
 
 # ========= Settings save/load =========
@@ -100,6 +86,9 @@ def save_settings():
             "auto_update": auto_update_var.get(),
             "selected_tab": notebook.index(notebook.select()),
         }
+        # Save notepad contents if widget exists
+        if notepad_text_widget is not None:
+            data["notepad_text"] = notepad_text_widget.get("1.0", "end-1c")
         with open(CONFIG_PATH, "w") as f:
             json.dump(data, f, indent=2)
     except Exception:
@@ -135,7 +124,7 @@ def _apply_widget_theme(widget, bg, fg, entry_bg, button_bg):
                 activeforeground=fg,
                 highlightbackground=bg,
             )
-        elif cls in ("Entry", "Spinbox"):
+        elif cls in ("Entry", "Spinbox", "Text"):
             widget.configure(
                 bg=entry_bg,
                 fg=fg,
@@ -649,7 +638,7 @@ def update_status():
 # ========= GUI setup ==========
 root = tk.Tk()
 root.title("game stuffs")
-root.geometry("400x450")
+root.geometry("400x470")
 root.resizable(False, False)
 
 notebook = ttk.Notebook(root)
@@ -889,6 +878,25 @@ cps_timer_var = tk.StringVar(value="Time left: 0")
 cps_timer_label = tk.Label(cps_frame, textvariable=cps_timer_var)
 cps_timer_label.pack(pady=4)
 
+# ----- Notepad tab -----
+notepad_frame = tk.Frame(notebook)
+notebook.add(notepad_frame, text="Notepad")
+
+notepad_label = tk.Label(notepad_frame, text="Simple notepad for random notes:")
+notepad_label.pack(pady=(10, 5))
+
+notepad_text_widget = tk.Text(notepad_frame, wrap="word", height=12)
+notepad_text_widget.pack(fill="both", expand=True, padx=8, pady=4)
+
+
+def clear_notepad():
+    notepad_text_widget.delete("1.0", tk.END)
+    save_settings()
+
+
+clear_notepad_button = tk.Button(notepad_frame, text="Clear notepad", command=clear_notepad)
+clear_notepad_button.pack(pady=4)
+
 # ----- Games tab -----
 games_frame = tk.Frame(notebook)
 notebook.add(games_frame, text="Games")
@@ -992,6 +1000,7 @@ def on_close():
             hold_listener.stop()
         except Exception:
             pass
+    save_settings()
     root.destroy()
 
 
@@ -1048,6 +1057,11 @@ if "always_on_top" in settings:
 if "auto_update" in settings:
     auto_update_var.set(settings["auto_update"])
 
+# Restore notepad text
+if "notepad_text" in settings and notepad_text_widget is not None:
+    notepad_text_widget.delete("1.0", tk.END)
+    notepad_text_widget.insert("1.0", settings["notepad_text"])
+
 # Apply theme after widgets exist
 apply_theme()
 
@@ -1076,6 +1090,6 @@ root.protocol("WM_DELETE_WINDOW", on_close)
 
 # Auto-check for updates on launch if enabled
 if auto_update_var.get():
-    root.after(2000, check_for_updates)  # wait 2 seconds so window is visible
+    root.after(2000, check_for_updates)
 
 root.mainloop()
