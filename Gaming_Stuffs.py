@@ -14,7 +14,7 @@ from pynput import keyboard
 pyautogui.PAUSE = 0.001  # smaller pause => faster clicks
 
 # For update checks (launcher version)
-VERSION = "1.6"
+VERSION = "1.7"
 print(f"Running Gaming_Stuffs version {VERSION}")
 
 # Base directory (put this file in /Users/ps/game_stuff)
