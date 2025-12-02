@@ -11,13 +11,15 @@ import pyautogui
 from pynput import keyboard
 
 # Make pyautogui as fast as safely possible
-pyautogui.PAUSE = 0.001  # default is 0.1; smaller = faster clicks [web:334][web:347]
+pyautogui.PAUSE = 0.001  # smaller pause => faster clicks
 
 # For update checks
-VERSION = "1.6"
+VERSION = "1.5"
 print(f"Running on version {VERSION}")
 
-CONFIG_PATH = os.path.join(os.path.dirname(__file__), "settings.json")
+# Base directory (now /Users/ps/game_stuff when you place the file there)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(BASE_DIR, "settings.json")
 
 # ========= Global state for Spam tab =========
 clicking = False
@@ -277,7 +279,7 @@ def apply_interval():
         value = float(interval_entry.get())
         if value <= 0:
             raise ValueError
-        # Clamp to a safe minimum to avoid hammering the system too hard
+        # Clamp to a safe minimum
         if value < 0.001:
             value = 0.001
         click_interval = value
@@ -553,7 +555,7 @@ def apply_auto_update():
 def open_forsaken_practice():
     try:
         subprocess.Popen(
-            ["python3", "/Users/ps/Desktop/ForsakenPractice.py"],
+            ["python3", os.path.join(BASE_DIR, "ForsakenPractice.py")],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
