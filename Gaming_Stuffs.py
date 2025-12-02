@@ -14,10 +14,10 @@ from pynput import keyboard
 pyautogui.PAUSE = 0.001  # smaller pause => faster clicks
 
 # For update checks
-VERSION = "1.6"
+VERSION = "1.7"
 print(f"Running on version {VERSION}")
 
-# Base directory (now /Users/ps/game_stuff when you place the file there)
+# Base directory (put this file in /Users/ps/game_stuff)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "settings.json")
 
@@ -588,6 +588,18 @@ def open_minecraft():
         messagebox.showerror("Error", f"Failed to open Minecraft:\n{e}")
 
 
+def open_rng_game():
+    try:
+        subprocess.Popen(
+            ["python3", os.path.join(BASE_DIR, "rng_game.py")],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to open RNG game:\n{e}")
+
+
 # ========= Update checker (overwrite current file) ==========
 def check_for_updates():
     import requests
@@ -943,6 +955,14 @@ minecraft_button = tk.Button(
     width=30,
 )
 minecraft_button.pack(pady=4)
+
+rng_game_button = tk.Button(
+    games_frame,
+    text="Open RNG Game",
+    command=open_rng_game,
+    width=30,
+)
+rng_game_button.pack(pady=4)
 
 # ----- Settings tab -----
 settings_frame = tk.Frame(notebook)
