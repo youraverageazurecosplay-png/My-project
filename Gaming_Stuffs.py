@@ -12,6 +12,7 @@ from pynput import keyboard
 
 # For update checks
 VERSION = "1.0"
+print(f"Running on version {VERSION}")
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "settings.json")
 
@@ -1027,4 +1028,5 @@ update_status()
 root.protocol("WM_DELETE_WINDOW", on_close)
 
 root.mainloop()
+
 
