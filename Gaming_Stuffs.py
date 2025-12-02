@@ -48,6 +48,23 @@ cps_test_duration = 5
 cps_result_var = None
 cps_timer_var = None
 
+# ----- Notepad tab -----
+notepad_frame = tk.Frame(notebook)
+notebook.add(notepad_frame, text="Notepad")
+
+notepad_label = tk.Label(notepad_frame, text="Simple notepad for random notes:")
+notepad_label.pack(pady=(10, 5))
+
+notepad_text = tk.Text(notepad_frame, wrap="word", height=12)
+notepad_text.pack(fill="both", expand=True, padx=8, pady=4)
+
+def clear_notepad():
+    notepad_text.delete("1.0", tk.END)
+
+clear_notepad_button = tk.Button(notepad_frame, text="Clear notepad", command=clear_notepad)
+clear_notepad_button.pack(pady=4)
+
+
 # ========= Settings / Always on top / Theme / Auto update =========
 always_on_top_var = None
 theme_mode_var = None  # "system", "light", "dark"
