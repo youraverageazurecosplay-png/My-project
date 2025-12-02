@@ -35,7 +35,7 @@ SAVE_PATH = os.path.join(BASE_DIR, "rng_save.json")
 COOLDOWN_SECS = 10 * 60        # 10 minutes
 LUCK_BOOST_FACTOR = 15         # Normal potion
 CELESTIAL_BOOST_FACTOR = 100   # Celestial potion
-INSANE_BOOST_FACTOR = 10000000 # Secret insane multiplier
+INSANE_BOOST_FACTOR = 100000000000000 # Secret insane multiplier
 
 ROLL_INTERVAL_SEC = 0.5        # autoroll speed
 
