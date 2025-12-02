@@ -10,8 +10,11 @@ from tkinter import messagebox, ttk
 import pyautogui
 from pynput import keyboard
 
+# Make pyautogui as fast as safely possible
+pyautogui.PAUSE = 0.001  # default is 0.1; smaller = faster clicks [web:334][web:347]
+
 # For update checks
-VERSION = "1.5"
+VERSION = "1.6"
 print(f"Running on version {VERSION}")
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "settings.json")
@@ -70,6 +73,12 @@ def load_settings():
 
 def save_settings():
     try:
+        # notebook might not be ready in some early/error paths; fall back gracefully
+        try:
+            selected_tab_index = notebook.index(notebook.select())
+        except Exception:
+            selected_tab_index = 0
+
         data = {
             "spam_hotkey": spam_hotkey_entry.get(),
             "spam_interval": interval_entry.get(),
@@ -84,7 +93,7 @@ def save_settings():
             "always_on_top": always_on_top_var.get(),
             "theme_mode": theme_mode_var.get(),
             "auto_update": auto_update_var.get(),
-            "selected_tab": notebook.index(notebook.select()),
+            "selected_tab": selected_tab_index,
         }
         if notepad_text_widget is not None:
             data["notepad_text"] = notepad_text_widget.get("1.0", "end-1c")
@@ -268,6 +277,9 @@ def apply_interval():
         value = float(interval_entry.get())
         if value <= 0:
             raise ValueError
+        # Clamp to a safe minimum to avoid hammering the system too hard
+        if value < 0.001:
+            value = 0.001
         click_interval = value
         update_status()
         messagebox.showinfo("Interval", f"Interval set to {click_interval} seconds.")
@@ -695,7 +707,7 @@ interval_label = tk.Label(spam_inner, text="Spam interval (seconds):")
 interval_label.pack(pady=(5, 0))
 
 interval_entry = tk.Entry(spam_inner)
-interval_entry.insert(0, "0.05")
+interval_entry.insert(0, "0.01")  # faster default
 interval_entry.pack(pady=3)
 
 interval_button = tk.Button(spam_inner, text="Apply Interval", command=apply_interval)
