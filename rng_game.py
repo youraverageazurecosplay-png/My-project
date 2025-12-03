@@ -17,6 +17,7 @@ RARITIES = [
     ("Epic",      250),
     ("Legendary", 2500),
     ("Mythic",    100000),
+    ("Divine",    1000000000),
 ]
 
 # Aura names per rarity (your edited list)
@@ -26,7 +27,8 @@ AURAS = {
     "Rare":      ["Undead: Devil", "Comet", "Aether"],
     "Epic":      ["Eclipse", "Supernova", "Diaboli: Void"],
     "Legendary": ["Poisoned", "Celestial", "Prism"],
-    "Mythic":    ["Archangel", "Abyssal Hunter", "Perplexity"],
+    "Mythic":    ["Archangel", "Memory", "Perplexed"],
+    "Mythic":    ["Perplexed: Pixels", "Oblivion", "Luminosity"],
 }
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
