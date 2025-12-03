@@ -994,7 +994,86 @@ encrypt_nums_entry.pack(padx=8, pady=2)
 
 encrypt_text_label = tk.Label(encrypt_inner, text="Encrypted text:")
 encrypt_text_label.pack(anchor="w", padx=8, pady=(4, 0))
-encrypt_text_entry =
+encrypt_text_entry = tk.Entry(encrypt_inner, width=40, state="readonly")
+encrypt_text_entry.pack(padx=8, pady=2)
+
+def set_readonly(entry, value: str):
+    entry.config(state="normal")
+    entry.delete(0, tk.END)
+    entry.insert(0, value)
+    entry.config(state="readonly")
+
+def copy_to_clipboard(value: str):
+    if not value:
+        return
+    root.clipboard_clear()
+    root.clipboard_append(value)
+
+def copy_encrypt_nums():
+    copy_to_clipboard(encrypt_nums_entry.get())
+
+def copy_encrypt_text():
+    copy_to_clipboard(encrypt_text_entry.get())
+
+copy_encrypt_nums_button = tk.Button(
+    encrypt_inner, text="Copy numbers", command=copy_encrypt_nums
+)
+copy_encrypt_nums_button.pack(pady=(0, 2))
+
+copy_encrypt_text_button = tk.Button(
+    encrypt_inner, text="Copy text", command=copy_encrypt_text
+)
+copy_encrypt_text_button.pack(pady=(0, 8))
+
+def do_encrypt():
+    txt = plain_entry.get()
+    nums, letters = double_encrypt(txt)
+    set_readonly(encrypt_nums_entry, nums)
+    set_readonly(encrypt_text_entry, letters)
+
+encrypt_button = tk.Button(encrypt_inner, text="Encrypt plain text", command=do_encrypt)
+encrypt_button.pack(pady=(2, 10))
+
+decrypt_label = tk.Label(encrypt_inner, text="Decrypt from numbers (e.g. 16 15):")
+decrypt_label.pack(anchor="w", padx=8)
+
+decrypt_entry = tk.Entry(encrypt_inner, width=40)
+decrypt_entry.pack(padx=8, pady=3)
+
+decrypt_nums_label = tk.Label(encrypt_inner, text="Decrypted numbers:")
+decrypt_nums_label.pack(anchor="w", padx=8, pady=(6, 0))
+decrypt_nums_entry = tk.Entry(encrypt_inner, width=40, state="readonly")
+decrypt_nums_entry.pack(padx=8, pady=2)
+
+decrypt_text_label = tk.Label(encrypt_inner, text="Decrypted text:")
+decrypt_text_label.pack(anchor="w", padx=8, pady=(4, 0))
+decrypt_text_entry = tk.Entry(encrypt_inner, width=40, state="readonly")
+decrypt_text_entry.pack(padx=8, pady=2)
+
+def copy_decrypt_nums():
+    copy_to_clipboard(decrypt_nums_entry.get())
+
+def copy_decrypt_text():
+    copy_to_clipboard(decrypt_text_entry.get())
+
+copy_decrypt_nums_button = tk.Button(
+    encrypt_inner, text="Copy numbers", command=copy_decrypt_nums
+)
+copy_decrypt_nums_button.pack(pady=(0, 2))
+
+copy_decrypt_text_button = tk.Button(
+    encrypt_inner, text="Copy text", command=copy_decrypt_text
+)
+copy_decrypt_text_button.pack(pady=(0, 8))
+
+def do_decrypt():
+    nums_str = decrypt_entry.get()
+    base_nums, letters = double_decrypt(nums_str)
+    set_readonly(decrypt_nums_entry, base_nums)
+    set_readonly(decrypt_text_entry, letters)
+
+decrypt_button = tk.Button(encrypt_inner, text="Decrypt numbers", command=do_decrypt)
+decrypt_button.pack(pady=(2, 10))
 
 # ----- Games tab -----
 games_frame = tk.Frame(notebook)
