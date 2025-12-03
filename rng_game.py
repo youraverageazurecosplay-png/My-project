@@ -6,7 +6,7 @@ from tkinter import ttk, messagebox
 import time
 
 # ===== Version for this script =====
-VERSION = "2.1"
+VERSION = "2.2"
 
 # ===== Configuration =====
 # Rarity tiers and base odds: 1 in X
