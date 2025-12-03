@@ -14,7 +14,7 @@ from pynput import keyboard
 pyautogui.PAUSE = 0.001  # smaller pause => faster clicks
 
 # For update checks (launcher version)
-VERSION = "1.7"
+VERSION = "1.8"
 print(f"Running Gaming_Stuffs version {VERSION}")
 
 # Base directory (put this file in /Users/ps/game_stuff)
@@ -75,7 +75,6 @@ def load_settings():
 
 def save_settings():
     try:
-        # notebook might not be ready in some early/error paths; fall back gracefully
         try:
             selected_tab_index = notebook.index(notebook.select())
         except Exception:
@@ -96,6 +95,10 @@ def save_settings():
             "theme_mode": theme_mode_var.get(),
             "auto_update": auto_update_var.get(),
             "selected_tab": selected_tab_index,
+            # custom paths (if user edits settings.json manually, they stay here)
+            "roblox_path": settings.get("roblox_path"),
+            "minecraft_path": settings.get("minecraft_path"),
+            "forsaken_path": settings.get("forsaken_path"),
         }
         if notepad_text_widget is not None:
             data["notepad_text"] = notepad_text_widget.get("1.0", "end-1c")
@@ -551,23 +554,37 @@ def apply_auto_update():
     save_settings()
 
 
-# ========= Games launchers ==========
+# ========= Games launchers (with configurable paths) ==========
 def open_forsaken_practice():
+    # Allow custom path from settings.json
+    custom = settings.get("forsaken_path")
+    if custom and os.path.exists(custom):
+        cmd = ["python3", custom]
+    else:
+        cmd = ["python3", os.path.join(BASE_DIR, "ForsakenPractice.py")]
+
     try:
         subprocess.Popen(
-            ["python3", os.path.join(BASE_DIR, "ForsakenPractice.py")],
+            cmd,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
     except Exception as e:
-        messagebox.showerror("Error", f"Failed to open ForsakenPractice.py:\n{e}")
+        messagebox.showerror("Error", f"Failed to open ForsakenPractice:\n{e}")
 
 
 def open_roblox():
+    custom = settings.get("roblox_path")
+    if custom and os.path.exists(custom):
+        # If user stores full path to .app or executable
+        cmd = ["/usr/bin/open", custom]
+    else:
+        cmd = ["/usr/bin/open", "-a", "/Users/ps/Applications/Roblox.app"]
+
     try:
         subprocess.Popen(
-            ["/usr/bin/open", "-a", "/Users/ps/Applications/Roblox.app"],
+            cmd,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -577,9 +594,15 @@ def open_roblox():
 
 
 def open_minecraft():
+    custom = settings.get("minecraft_path")
+    if custom and os.path.exists(custom):
+        cmd = ["/usr/bin/open", custom]
+    else:
+        cmd = ["/usr/bin/open", "-a", "/Applications/Minecraft.app"]
+
     try:
         subprocess.Popen(
-            ["/usr/bin/open", "-a", "/Applications/Minecraft.app"],
+            cmd,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
