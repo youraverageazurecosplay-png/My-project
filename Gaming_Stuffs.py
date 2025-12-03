@@ -14,7 +14,7 @@ from pynput import keyboard
 pyautogui.PAUSE = 0.001  # smaller pause => faster clicks
 
 # For update checks (launcher version)
-VERSION = "1.8"
+VERSION = "1.9"
 print(f"Running Gaming_Stuffs version {VERSION}")
 
 # Base directory (put this file in /Users/ps/game_stuff)
@@ -61,6 +61,45 @@ auto_update_var = None  # bool: automatically check for updates on launch
 # ========= Notepad state =========
 notepad_text_widget = None  # will hold Text widget
 
+# ========= Simple double-layer cipher (Caesar + Atbash) =========
+def text_to_nums(s):
+    nums = []
+    for ch in s:
+        if ch.isalpha():
+            n = ord(ch.upper()) - ord('A') + 1  # A=1..Z=26
+            nums.append(n)
+    return nums
+
+def nums_to_text(nums):
+    out = []
+    for n in nums:
+        if 1 <= n <= 26:
+            out.append(chr(ord('A') + n - 1))
+    return ''.join(out)
+
+def double_encrypt(text, shift=3):
+    # layer 1: Caesar on numbers (A=1..Z=26)
+    base_nums = text_to_nums(text)
+    shifted = [((n - 1 + shift) % 26) + 1 for n in base_nums]
+    # layer 2: Atbash on numbers
+    atbash = [27 - n for n in shifted]
+    letters = nums_to_text(atbash)
+    num_str = ' '.join(str(n) for n in atbash)
+    return num_str, letters
+
+def double_decrypt(num_text, shift=3):
+    # expect space-separated numbers like "16 15"
+    try:
+        nums = [int(x) for x in num_text.split()]
+    except ValueError:
+        return "", ""
+    # reverse Atbash
+    un_atbash = [27 - n for n in nums]
+    # reverse Caesar
+    unshifted = [((n - 1 - shift) % 26) + 1 for n in un_atbash]
+    letters = nums_to_text(unshifted)
+    num_str = ' '.join(str(n) for n in unshifted)
+    return num_str, letters
 
 # ========= Settings save/load =========
 def load_settings():
@@ -71,7 +110,6 @@ def load_settings():
             return json.load(f)
     except Exception:
         return {}
-
 
 def save_settings():
     try:
@@ -107,7 +145,6 @@ def save_settings():
     except Exception:
         pass
 
-
 # ========= Theme helpers =========
 def is_macos_dark():
     if platform.system() != "Darwin":
@@ -120,7 +157,6 @@ def is_macos_dark():
         return bool(out)
     except Exception:
         return False
-
 
 def _apply_widget_theme(widget, bg, fg, entry_bg, button_bg):
     cls = widget.__class__.__name__
@@ -159,7 +195,6 @@ def _apply_widget_theme(widget, bg, fg, entry_bg, button_bg):
 
     for child in widget.winfo_children():
         _apply_widget_theme(child, bg, fg, entry_bg, button_bg)
-
 
 def apply_theme():
     mode = theme_mode_var.get()
@@ -211,7 +246,6 @@ def apply_theme():
         foreground=fg,
     )
 
-
 # ========= Mouse wheel scrolling =========
 def _on_mousewheel(event, canvas):
     system = platform.system()
@@ -219,7 +253,6 @@ def _on_mousewheel(event, canvas):
         canvas.yview_scroll(int(-1 * event.delta), "units")
     else:
         canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-
 
 # ========= Spam logic ==========
 def spam_action():
@@ -231,14 +264,12 @@ def spam_action():
             pyautogui.click(button=mouse_button)
         time.sleep(click_interval)
 
-
 def spam_hotkey_trigger():
     global clicking
     clicking = not clicking
     if clicking:
         threading.Thread(target=spam_action, daemon=True).start()
     update_status()
-
 
 def start_spam_listener(hotkey_str):
     global hotkey_listener, current_hotkey
@@ -262,7 +293,6 @@ def start_spam_listener(hotkey_str):
 
     update_status()
 
-
 def apply_spam_hotkey():
     raw = spam_hotkey_entry.get().strip().lower()
     if not raw:
@@ -274,7 +304,6 @@ def apply_spam_hotkey():
         hotkey_str = raw
     start_spam_listener(hotkey_str)
     save_settings()
-
 
 def apply_interval():
     global click_interval
@@ -291,7 +320,6 @@ def apply_interval():
         save_settings()
     except ValueError:
         messagebox.showerror("Error", "Please enter a positive number for the interval.")
-
 
 def apply_spam_action():
     global action_type, key_name, mouse_button
@@ -314,18 +342,15 @@ def apply_spam_action():
     )
     save_settings()
 
-
 def start_key_capture():
     global capturing_key
     capturing_key = True
     status_var.set("Status: [Spam] Press a key in the window to set spam key...")
 
-
 def start_mouse_capture():
     global capturing_mouse
     capturing_mouse = True
     status_var.set("Status: [Spam] Click in the window to set spam mouse button...")
-
 
 # ========= Hold logic ==========
 def start_hold():
@@ -339,7 +364,6 @@ def start_hold():
         pyautogui.mouseDown(button=hold_mouse_button)
     update_status()
 
-
 def stop_hold():
     global holding, hold_action_type, hold_key_name, hold_mouse_button
     if not holding:
@@ -351,14 +375,12 @@ def stop_hold():
     holding = False
     update_status()
 
-
 def hold_hotkey_trigger():
     global holding
     if holding:
         stop_hold()
     else:
         start_hold()
-
 
 def start_hold_listener(hotkey_str):
     global hold_listener, hold_hotkey
@@ -382,7 +404,6 @@ def start_hold_listener(hotkey_str):
 
     update_status()
 
-
 def apply_hold_hotkey():
     raw = hold_hotkey_entry.get().strip().lower()
     if not raw:
@@ -394,7 +415,6 @@ def apply_hold_hotkey():
         hotkey_str = raw
     start_hold_listener(hotkey_str)
     save_settings()
-
 
 def apply_hold_action():
     global hold_action_type, hold_key_name, hold_mouse_button
@@ -417,18 +437,15 @@ def apply_hold_action():
     )
     save_settings()
 
-
 def start_hold_key_capture():
     global capturing_hold_key
     capturing_hold_key = True
     status_var.set("Status: [Hold] Press a key in the window to set hold key...")
 
-
 def start_hold_mouse_capture():
     global capturing_hold_mouse
     capturing_hold_mouse = True
     status_var.set("Status: [Hold] Click in the window to set hold mouse button...")
-
 
 # ========= Shared capture handlers ==========
 def on_key_press(event):
@@ -465,7 +482,6 @@ def on_key_press(event):
         update_status()
         save_settings()
 
-
 def on_mouse_click(event):
     global capturing_mouse, mouse_button, capturing_hold_mouse, hold_mouse_button
 
@@ -492,7 +508,6 @@ def on_mouse_click(event):
         update_status()
         save_settings()
 
-
 # ========= CPS Test logic ==========
 def set_cps_duration():
     global cps_test_duration
@@ -508,12 +523,10 @@ def set_cps_duration():
         cps_duration_spin.insert(0, "5")
     save_settings()
 
-
 def cps_button_click():
     global cps_test_clicks
     if cps_test_running:
         cps_test_clicks += 1
-
 
 def start_cps_test():
     global cps_test_running, cps_test_clicks
@@ -524,7 +537,6 @@ def start_cps_test():
     cps_test_clicks = 0
     cps_button.config(text="Click!", command=cps_button_click)
     countdown_cps(cps_test_duration)
-
 
 def countdown_cps(remaining):
     global cps_test_running, cps_test_clicks
@@ -540,7 +552,6 @@ def countdown_cps(remaining):
     else:
         root.after(1000, lambda: countdown_cps(remaining - 1))
 
-
 # ========= Settings helpers ==========
 def apply_always_on_top():
     if always_on_top_var.get():
@@ -549,10 +560,8 @@ def apply_always_on_top():
         root.attributes("-topmost", False)
     save_settings()
 
-
 def apply_auto_update():
     save_settings()
-
 
 # ========= Games launchers (with configurable paths) ==========
 def open_forsaken_practice():
@@ -573,7 +582,6 @@ def open_forsaken_practice():
     except Exception as e:
         messagebox.showerror("Error", f"Failed to open ForsakenPractice:\n{e}")
 
-
 def open_roblox():
     custom = settings.get("roblox_path")
     if custom and os.path.exists(custom):
@@ -592,7 +600,6 @@ def open_roblox():
     except Exception as e:
         messagebox.showerror("Error", f"Failed to open Roblox:\n{e}")
 
-
 def open_minecraft():
     custom = settings.get("minecraft_path")
     if custom and os.path.exists(custom):
@@ -610,7 +617,6 @@ def open_minecraft():
     except Exception as e:
         messagebox.showerror("Error", f"Failed to open Minecraft:\n{e}")
 
-
 def open_rng_game():
     try:
         subprocess.Popen(
@@ -621,7 +627,6 @@ def open_rng_game():
         )
     except Exception as e:
         messagebox.showerror("Error", f"Failed to open RNG game:\n{e}")
-
 
 # ========= Update checker (update launcher + games) ==========
 def check_for_updates():
@@ -676,7 +681,6 @@ def check_for_updates():
     except Exception as e:
         messagebox.showinfo("Update", f"Could not check for updates:\n{e}")
 
-
 # ========= Status text ==========
 def update_status():
     spam_state = "RUNNING" if clicking else "STOPPED"
@@ -689,7 +693,6 @@ def update_status():
         f"Action: {hold_action_type}-"
         f"{hold_key_name if hold_action_type=='key' else hold_mouse_button})"
     )
-
 
 # ========= GUI setup ==========
 root = tk.Tk()
@@ -718,14 +721,11 @@ spam_canvas.configure(yscrollcommand=spam_scrollbar.set)
 spam_inner = tk.Frame(spam_canvas)
 spam_window = spam_canvas.create_window((0, 0), window=spam_inner, anchor="nw")
 
-
 def on_spam_inner_configure(event):
     spam_canvas.configure(scrollregion=spam_canvas.bbox("all"))
 
-
 def on_spam_canvas_configure(event):
     spam_canvas.itemconfig(spam_window, width=event.width)
-
 
 spam_inner.bind("<Configure>", on_spam_inner_configure)
 spam_canvas.bind("<Configure>", on_spam_canvas_configure)
@@ -800,10 +800,8 @@ pick_mouse_button.pack(pady=3)
 spam_action_button = tk.Button(spam_inner, text="Apply Spam Action", command=apply_spam_action)
 spam_action_button.pack(pady=4)
 
-
 def manual_spam_toggle():
     spam_hotkey_trigger()
-
 
 spam_toggle_button = tk.Button(spam_inner, text="Spam Start/Stop (manual)", command=manual_spam_toggle)
 spam_toggle_button.pack(pady=5)
@@ -826,14 +824,11 @@ hold_canvas.configure(yscrollcommand=hold_scrollbar.set)
 hold_inner = tk.Frame(hold_canvas)
 hold_window = hold_canvas.create_window((0, 0), window=hold_inner, anchor="nw")
 
-
 def on_hold_inner_configure(event):
     hold_canvas.configure(scrollregion=hold_canvas.bbox("all"))
 
-
 def on_hold_canvas_configure(event):
     hold_canvas.itemconfig(hold_window, width=event.width)
-
 
 hold_inner.bind("<Configure>", on_hold_inner_configure)
 hold_canvas.bind("<Configure>", on_hold_canvas_configure)
@@ -897,13 +892,11 @@ pick_hold_mouse_button.pack(pady=3)
 hold_action_button = tk.Button(hold_inner, text="Apply Hold Action", command=apply_hold_action)
 hold_action_button.pack(pady=4)
 
-
 def manual_hold_toggle():
     if holding:
         stop_hold()
     else:
         start_hold()
-
 
 hold_toggle_button = tk.Button(hold_inner, text="Hold Start/Stop (manual)", command=manual_hold_toggle)
 hold_toggle_button.pack(pady=5)
@@ -944,14 +937,79 @@ notepad_label.pack(pady=(10, 5))
 notepad_text_widget = tk.Text(notepad_frame, wrap="word", height=12)
 notepad_text_widget.pack(fill="both", expand=True, padx=8, pady=4)
 
-
 def clear_notepad():
     notepad_text_widget.delete("1.0", tk.END)
     save_settings()
 
-
 clear_notepad_button = tk.Button(notepad_frame, text="Clear notepad", command=clear_notepad)
 clear_notepad_button.pack(pady=4)
+
+# ----- Encrypt tab -----
+encrypt_frame = tk.Frame(notebook)
+notebook.add(encrypt_frame, text="Encrypt")
+
+encrypt_label = tk.Label(
+    encrypt_frame,
+    text="Double-layer encrypt / decrypt (Caesar + Atbash, A=1..26):"
+)
+encrypt_label.pack(pady=(10, 5))
+
+# Input for plain text
+plain_label = tk.Label(encrypt_frame, text="Plain text:")
+plain_label.pack(anchor="w", padx=8)
+plain_entry = tk.Entry(encrypt_frame, width=40)
+plain_entry.pack(padx=8, pady=3)
+
+encrypt_result_nums_var = tk.StringVar(value="Encrypted numbers: ")
+encrypt_result_text_var = tk.StringVar(value="Encrypted text: ")
+
+encrypt_result_nums_label = tk.Label(
+    encrypt_frame, textvariable=encrypt_result_nums_var, anchor="w", justify="left"
+)
+encrypt_result_nums_label.pack(fill="x", padx=8, pady=(6, 0))
+
+encrypt_result_text_label = tk.Label(
+    encrypt_frame, textvariable=encrypt_result_text_var, anchor="w", justify="left"
+)
+encrypt_result_text_label.pack(fill="x", padx=8, pady=(0, 6))
+
+def do_encrypt():
+    txt = plain_entry.get()
+    nums, letters = double_encrypt(txt)
+    encrypt_result_nums_var.set(f"Encrypted numbers: {nums}")
+    encrypt_result_text_var.set(f"Encrypted text: {letters}")
+
+encrypt_button = tk.Button(encrypt_frame, text="Encrypt plain text", command=do_encrypt)
+encrypt_button.pack(pady=(2, 10))
+
+# Decrypt area
+decrypt_label = tk.Label(encrypt_frame, text="Decrypt from numbers (e.g. 16 15):")
+decrypt_label.pack(anchor="w", padx=8)
+
+decrypt_entry = tk.Entry(encrypt_frame, width=40)
+decrypt_entry.pack(padx=8, pady=3)
+
+decrypt_result_nums_var = tk.StringVar(value="Decrypted numbers: ")
+decrypt_result_text_var = tk.StringVar(value="Decrypted text: ")
+
+decrypt_result_nums_label = tk.Label(
+    encrypt_frame, textvariable=decrypt_result_nums_var, anchor="w", justify="left"
+)
+decrypt_result_nums_label.pack(fill="x", padx=8, pady=(6, 0))
+
+decrypt_result_text_label = tk.Label(
+    encrypt_frame, textvariable=decrypt_result_text_var, anchor="w", justify="left"
+)
+decrypt_result_text_label.pack(fill="x", padx=8, pady=(0, 6))
+
+def do_decrypt():
+    nums_str = decrypt_entry.get()
+    base_nums, letters = double_decrypt(nums_str)
+    decrypt_result_nums_var.set(f"Decrypted numbers: {base_nums}")
+    decrypt_result_text_var.set(f"Decrypted text: {letters}")
+
+decrypt_button = tk.Button(encrypt_frame, text="Decrypt numbers", command=do_decrypt)
+decrypt_button.pack(pady=(2, 10))
 
 # ----- Games tab -----
 games_frame = tk.Frame(notebook)
@@ -1032,11 +1090,9 @@ theme_combo = ttk.Combobox(
 )
 theme_combo.pack(pady=3, anchor="w", padx=10)
 
-
 def on_theme_change(event=None):
     apply_theme()
     save_settings()
-
 
 theme_combo.bind("<<ComboboxSelected>>", on_theme_change)
 
@@ -1048,7 +1104,6 @@ status_var = tk.StringVar()
 update_status()
 status_label = tk.Label(root, textvariable=status_var, anchor="w", justify="left")
 status_label.pack(fill="x", pady=2)
-
 
 def on_close():
     global clicking, hotkey_listener, holding, hold_listener
@@ -1066,7 +1121,6 @@ def on_close():
             pass
     save_settings()
     root.destroy()
-
 
 quit_button = tk.Button(root, text="Quit", command=on_close)
 quit_button.pack(pady=4)
@@ -1136,7 +1190,6 @@ if "selected_tab" in settings:
     except Exception:
         pass
 
-
 def _hotkey_from_entry(entry, default_str):
     raw = entry.get().strip().lower()
     if not raw:
@@ -1144,7 +1197,6 @@ def _hotkey_from_entry(entry, default_str):
     if not raw.startswith("<"):
         return f"<{raw}>"
     return raw
-
 
 start_spam_listener(_hotkey_from_entry(spam_hotkey_entry, "<f6>"))
 start_hold_listener(_hotkey_from_entry(hold_hotkey_entry, "<f7>"))
