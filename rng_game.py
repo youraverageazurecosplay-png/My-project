@@ -6,7 +6,7 @@ from tkinter import ttk, messagebox
 import time
 
 # ===== Version for this script =====
-VERSION = "1.4"  # bump this when you change rng_game.py
+VERSION = "1.5"  # bump this when you change rng_game.py
 
 # ===== Configuration =====
 # Rarity tiers and base odds: 1 in X
@@ -20,7 +20,7 @@ RARITIES = [
     ("Divine",    1000000000),
 ]
 
-# Aura names per rarity
+# Aura names per rarity (your edited list, fixed keys)
 AURAS = {
     "Common":    ["Common", "Uncommon", "Rare", "Crystallised"],
     "Uncommon":  ["Powered", "Undead", "Siderium", "Storm"],
@@ -39,7 +39,7 @@ LUCK_BOOST_FACTOR = 15         # Normal potion
 CELESTIAL_BOOST_FACTOR = 100   # Celestial potion
 INSANE_BOOST_FACTOR = 100000000000000  # Secret insane multiplier
 
-ROLL_INTERVAL_SEC = 0.5        # autoroll speed
+ROLL_INTERVAL_SEC = 0.5        # autoroll speed (seconds)
 
 SECRET_CODE = "1028777"
 
@@ -74,7 +74,7 @@ class RNGGame:
     def __init__(self, root):
         self.root = root
         self.root.title("RNG Game")
-        self.root.geometry("540x430")
+        self.root.geometry("540x440")
         self.root.resizable(False, False)
 
         # Game state
@@ -98,8 +98,9 @@ class RNGGame:
         self.countdown_var = tk.StringVar()
         self.celestial_countdown_var = tk.StringVar()
 
-        # Dev tools autoroll interval setting
+        # Dev tools fields
         self.autoroll_interval_var = tk.StringVar(value=str(ROLL_INTERVAL_SEC))
+        self.custom_luck_var = tk.StringVar(value="1")
 
         self.load_game()
         self.build_ui()
@@ -316,7 +317,7 @@ class RNGGame:
     def open_special_gui(self):
         win = tk.Toplevel(self.root)
         win.title("dev tools :3")
-        win.geometry("420x310")
+        win.geometry("430x340")
         win.resizable(False, False)
 
         frame = tk.Frame(win)
@@ -355,8 +356,32 @@ class RNGGame:
         )
         insane_btn.pack(side="left", padx=4)
 
+        # Custom luck multiplier
+        luck_frame = tk.Frame(frame)
+        luck_frame.pack(pady=(6, 2))
+
+        tk.Label(
+            luck_frame,
+            text="Custom luck multiplier for next roll:"
+        ).pack(side="left")
+
+        luck_entry = tk.Entry(
+            luck_frame,
+            textvariable=self.custom_luck_var,
+            width=8
+        )
+        luck_entry.pack(side="left", padx=4)
+
+        apply_luck_btn = tk.Button(
+            luck_frame,
+            text="Apply",
+            command=self.apply_custom_luck
+        )
+        apply_luck_btn.pack(side="left")
+
+        # Autoroll row
         btn_row2 = tk.Frame(frame)
-        btn_row2.pack(pady=(4, 6))
+        btn_row2.pack(pady=(8, 4))
 
         autoroll_toggle_btn = tk.Button(
             btn_row2,
@@ -381,12 +406,12 @@ class RNGGame:
         )
         interval_entry.pack(side="left", padx=4)
 
-        apply_btn = tk.Button(
+        apply_interval_btn = tk.Button(
             autoroll_speed_frame,
             text="Apply",
             command=self.apply_autoroll_interval
         )
-        apply_btn.pack(side="left")
+        apply_interval_btn.pack(side="left")
 
         close_btn = tk.Button(frame, text="Close", command=win.destroy)
         close_btn.pack(pady=8)
@@ -402,6 +427,21 @@ class RNGGame:
     def set_insane_multiplier(self):
         self.luck_boost_factor_next_roll = INSANE_BOOST_FACTOR
         messagebox.showinfo("Insane Boost", "Next roll will use the insane multiplier!")
+
+    def apply_custom_luck(self):
+        try:
+            value = float(self.custom_luck_var.get())
+            if value <= 0:
+                raise ValueError
+            if value > INSANE_BOOST_FACTOR:
+                value = INSANE_BOOST_FACTOR
+            self.luck_boost_factor_next_roll = value
+            messagebox.showinfo(
+                "Custom Luck",
+                f"Next roll will use x{value:g} luck multiplier."
+            )
+        except ValueError:
+            messagebox.showerror("Custom Luck", "Enter a positive number (e.g. 2, 10, 100).")
 
     def apply_autoroll_interval(self):
         global ROLL_INTERVAL_SEC
