@@ -6,7 +6,7 @@ from tkinter import ttk, messagebox
 import time
 
 # ===== Version for this script =====
-VERSION = "2.1"
+VERSION = "2.4"
 
 # ===== Configuration =====
 # Rarity tiers and base odds: 1 in X
@@ -21,7 +21,7 @@ RARITIES = [
     ("DEV",       1000000000000),  # ultra rare dev-only rarity
 ]
 
-# Aura names per rarity (your edited list + DEV)
+# Aura names per rarity
 AURAS = {
     "Common":    ["Common", "Uncommon", "Rare", "Crystallised"],
     "Uncommon":  ["Powered", "Undead", "Siderium", "Storm"],
@@ -132,7 +132,7 @@ class RNGGame:
 
         # Custom luck (persistent until disabled)
         self.custom_luck_enabled = False
-        self.custom_luck_value = 1.0
+               self.custom_luck_value = 1.0
 
         # Dev potion (guarantees DEV aura next roll)
         self.dev_potion_next_roll_dev = False
@@ -339,4 +339,521 @@ class RNGGame:
         if self.potion_button is not None:
             self.potion_button.config(state="disabled")
         self.save_game()
-        self.root
+        self.root.after(1000, self.check_potion_cooldown)
+
+    def use_celestial_potion(self):
+        now = time.time()
+        if now < self.last_used_celestial_potion_time + COOLDOWN_SECS:
+            return
+        self.luck_boost_factor_next_roll = CELESTIAL_BOOST_FACTOR
+        self.last_used_celestial_potion_time = now
+        self.celestial_countdown_var.set("Celestial Potion active! Your next roll is insanely lucky!")
+        if self.celestial_button is not None:
+            self.celestial_button.config(state="disabled")
+        self.save_game()
+        self.root.after(1000, self.check_celestial_potion_cooldown)
+
+    # ===== Secret Code & Special GUI =====
+    def open_code_prompt(self):
+        win = tk.Toplevel(self.root)
+        win.title("Enter Code")
+        win.geometry("260x120")
+        win.resizable(False, False)
+        win.transient(self.root)
+        win.grab_set()
+
+        frame = tk.Frame(win)
+        frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        tk.Label(frame, text="Enter secret code:").pack(anchor="w")
+
+        code_var = tk.StringVar()
+        entry = tk.Entry(frame, textvariable=code_var, show="*")
+        entry.pack(fill="x", pady=4)
+        entry.focus_set()
+
+        def submit():
+            code = code_var.get().strip()
+            if code == SECRET_CODE:
+                win.destroy()
+                self.open_special_gui()
+            else:
+                messagebox.showerror("Wrong Code", "That code is not correct.")
+                code_var.set("")
+                entry.focus_set()
+
+        submit_btn = tk.Button(frame, text="Submit", command=submit)
+        submit_btn.pack(pady=4)
+
+        win.bind("<Return>", lambda e: submit())
+
+    def open_special_gui(self):
+        win = tk.Toplevel(self.root)
+        win.title("dev tools :3")
+        win.geometry("460x380")
+        win.resizable(False, False)
+
+        # ===== scrollable container =====
+        container = tk.Frame(win)
+        container.pack(fill="both", expand=True)
+
+        canvas = tk.Canvas(container)
+        scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        # frame inside canvas that actually holds the dev tools
+        frame = tk.Frame(canvas)
+        frame_id = canvas.create_window((0, 0), window=frame, anchor="nw")
+
+        # update scrollregion when contents change
+        def on_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+        frame.bind("<Configure>", on_configure)
+
+        # keep inner frame width matching canvas width
+        def on_canvas_configure(event):
+            canvas.itemconfig(frame_id, width=event.width)
+        canvas.bind("<Configure>", on_canvas_configure)
+
+        # mouse wheel scrolling
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        # ===== dev tools content =====
+        title = tk.Label(frame, text="Sneaky Dev Tools", font=("Helvetica", 14, "bold"))
+        title.pack(pady=(0, 8))
+
+        info = tk.Label(
+            frame,
+            text="You unlocked the secret menu.\nDeveloper / cheat tools here."
+        )
+        info.pack(pady=(0, 8))
+
+        stats = tk.Label(
+            frame,
+            text=f"Total Rolls: {self.total_rolls}\nBest Aura: {self.best_aura}"
+        )
+        stats.pack(pady=4)
+
+        # Buttons in secret menu
+        btn_row1 = tk.Frame(frame)
+        btn_row1.pack(pady=(6, 2))
+
+        reset_cd_btn = tk.Button(
+            btn_row1,
+            text="Reset Potion Cooldowns",
+            command=self.reset_potion_cooldowns
+        )
+        reset_cd_btn.pack(side="left", padx=4)
+
+        insane_btn = tk.Button(
+            btn_row1,
+            text="Next Roll x10,000,000",
+            command=self.set_insane_multiplier
+        )
+        insane_btn.pack(side="left", padx=4)
+
+        # Dev potion (DEV aura for next roll)
+        dev_btn = tk.Button(
+            frame,
+            text="Use DEV Potion (next roll = DEV)",
+            command=self.use_dev_potion
+        )
+        dev_btn.pack(pady=(4, 4))
+
+        # Custom luck multiplier (persistent)
+        luck_frame = tk.Frame(frame)
+        luck_frame.pack(pady=(6, 2))
+
+        tk.Label(
+            luck_frame,
+            text="Custom luck multiplier:"
+        ).pack(side="left")
+
+        luck_entry = tk.Entry(
+            luck_frame,
+            textvariable=self.custom_luck_var,
+            width=8
+        )
+        luck_entry.pack(side="left", padx=4)
+
+        apply_luck_btn = tk.Button(
+            luck_frame,
+            text="Enable/Update",
+            command=self.apply_custom_luck
+        )
+        apply_luck_btn.pack(side="left")
+
+        disable_luck_btn = tk.Button(
+            frame,
+            text="Disable Custom Luck",
+            command=self.disable_custom_luck
+        )
+        disable_luck_btn.pack(pady=(2, 6))
+
+        # Autoroll row
+        btn_row2 = tk.Frame(frame)
+        btn_row2.pack(pady=(4, 4))
+
+        autoroll_toggle_btn = tk.Button(
+            btn_row2,
+            text="Toggle Autoroll",
+            command=self.toggle_autoroll
+        )
+        autoroll_toggle_btn.pack(side="left", padx=4)
+
+        # Autoroll interval controls
+        autoroll_speed_frame = tk.Frame(frame)
+        autoroll_speed_frame.pack(pady=(4, 2))
+
+        tk.Label(
+            autoroll_speed_frame,
+            text="Autoroll interval (seconds):"
+        ).pack(side="left")
+
+        interval_entry = tk.Entry(
+            autoroll_speed_frame,
+            textvariable=self.autoroll_interval_var,
+            width=7
+        )
+        interval_entry.pack(side="left", padx=4)
+
+        apply_interval_btn = tk.Button(
+            autoroll_speed_frame,
+            text="Apply",
+            command=self.apply_autoroll_interval
+        )
+        apply_interval_btn.pack(side="left")
+
+        close_btn = tk.Button(frame, text="Close", command=win.destroy)
+        close_btn.pack(pady=8)
+
+    def reset_potion_cooldowns(self):
+        self.last_used_potion_time = 0
+        self.last_used_celestial_potion_time = 0
+        self.check_potion_cooldown()
+        self.check_celestial_potion_cooldown()
+        self.save_game()
+        messagebox.showinfo("Potions", "Potion cooldowns have been reset.")
+
+    def set_insane_multiplier(self):
+        self.luck_boost_factor_next_roll = INSANE_BOOST_FACTOR
+        messagebox.showinfo("Insane Boost", "Next roll will use the insane multiplier!")
+
+    def use_dev_potion(self):
+        self.dev_potion_next_roll_dev = True
+        messagebox.showinfo("DEV Potion", "Next roll will be the DEV aura.")
+
+    def apply_custom_luck(self):
+        try:
+            value = float(self.custom_luck_var.get())
+            if value <= 0:
+                raise ValueError
+            self.custom_luck_value = value
+            self.custom_luck_enabled = True
+            self.update_custom_luck_status()
+            messagebox.showinfo(
+                "Custom Luck",
+                f"Custom luck enabled: x{value:g} (applies to every roll until disabled)."
+            )
+        except ValueError:
+            messagebox.showerror("Custom Luck", "Enter a positive number (e.g. 2, 10, 100).")
+
+    def disable_custom_luck(self):
+        self.custom_luck_enabled = False
+        self.custom_luck_value = 1.0
+        self.update_custom_luck_status()
+        messagebox.showinfo("Custom Luck", "Custom luck disabled.")
+
+    def update_custom_luck_status(self):
+        if self.custom_luck_enabled:
+            self.custom_luck_status_var.set(f"Custom luck: ON (x{self.custom_luck_value:g})")
+        else:
+            self.custom_luck_status_var.set("Custom luck: OFF")
+
+    def apply_autoroll_interval(self):
+        global ROLL_INTERVAL_SEC
+        try:
+            value = float(self.autoroll_interval_var.get())
+            if value <= 0:
+                raise ValueError
+            if value < 0.01:
+                value = 0.01
+            ROLL_INTERVAL_SEC = value
+            messagebox.showinfo(
+                "Autoroll",
+                f"Autoroll interval set to {ROLL_INTERVAL_SEC:.3f} seconds."
+            )
+        except ValueError:
+            messagebox.showerror("Autoroll", "Enter a positive number in seconds.")
+
+    # ===== Autoroll =====
+    def toggle_autoroll(self):
+        self.autoroll_enabled = not self.autoroll_enabled
+        if self.autoroll_enabled:
+            messagebox.showinfo("Autoroll", "Autoroll enabled. Rolling automatically.")
+            self.schedule_next_autoroll()
+        else:
+            self.stop_autoroll()
+            messagebox.showinfo("Autoroll", "Autoroll disabled.")
+
+    def schedule_next_autoroll(self):
+        if not self.autoroll_enabled:
+            return
+        self.autoroll_job = self.root.after(int(ROLL_INTERVAL_SEC * 1000), self.autoroll_tick)
+
+    def autoroll_tick(self):
+        if not self.autoroll_enabled:
+            return
+        self.roll()
+        self.schedule_next_autoroll()
+
+    def stop_autoroll(self):
+        if self.autoroll_job is not None:
+            try:
+                self.root.after_cancel(self.autoroll_job)
+            except Exception:
+                pass
+            self.autoroll_job = None
+
+    # ===== Inventory helpers =====
+    def rarity_index(self, rarity_name):
+        for i, (name, _) in enumerate(RARITIES):
+            if name == rarity_name:
+                return i
+        return None
+
+    def is_rarity_better(self, new_rarity):
+        idx_new = self.rarity_index(new_rarity)
+        if idx_new is None:
+            return False
+        if self.best_rarity_index is None:
+            return True
+        return idx_new > self.best_rarity_index
+
+    def add_to_inventory(self, aura_name, rarity):
+        for item in self.inventory:
+            if item["aura"] == aura_name and item["rarity"] == rarity:
+                item["count"] += 1
+                return
+        self.inventory.append({"aura": aura_name, "rarity": rarity, "count": 1})
+
+    # ===== Money / Selling =====
+    def sell_all_auras(self):
+        total = 0
+        for item in self.inventory:
+            rarity = item["rarity"]
+            count = item["count"]
+            price = PRICE_PER_RARITY.get(rarity, 0)
+            total += price * count
+        if total == 0:
+            messagebox.showinfo("Sell", "You have no auras to sell.")
+            return
+        if not messagebox.askyesno("Sell", f"Sell all auras for {total} coins?"):
+            return
+        self.money += total
+        self.inventory.clear()
+        self.update_stats()
+        self.update_money_label()
+        self.save_game()
+        messagebox.showinfo("Sell", f"Sold all auras for {total} coins.")
+
+    def update_money_label(self):
+        self.money_var.set(f"Money: {self.money}")
+
+    # ===== Glove shop =====
+    def open_glove_shop(self):
+        win = tk.Toplevel(self.root)
+        win.title("Glove Shop")
+        win.geometry("460x300")
+        win.resizable(False, False)
+
+        frame = tk.Frame(win)
+        frame.pack(fill="both", expand=True, padx=8, pady=8)
+
+        tk.Label(frame, text=f"Money: {self.money}").pack(anchor="w")
+
+        tk.Label(frame, text="Available gloves:").pack(anchor="w", pady=(4, 2))
+
+        for recipe in GLOVE_RECIPES:
+            text = f'{recipe["name"]} - Cost: {recipe["cost"]} coins, Needs: '
+            need_parts = []
+            for aura_name, rarity in recipe["required_auras"]:
+                need_parts.append(f'{aura_name} ({rarity})')
+            text += ", ".join(need_parts)
+
+            row = tk.Frame(frame)
+            row.pack(fill="x", pady=2)
+
+            tk.Label(row, text=text, wraplength=380, justify="left").pack(side="left", expand=True)
+
+            btn = tk.Button(
+                row,
+                text="Craft",
+                command=lambda r=recipe: self.craft_glove(r)
+            )
+            btn.pack(side="right")
+
+        tk.Label(frame, text="Owned gloves:").pack(anchor="w", pady=(8, 2))
+        gloves_text = ", ".join(self.gloves) if self.gloves else "None"
+        tk.Label(frame, text=gloves_text, wraplength=380, justify="left").pack(anchor="w")
+
+    def craft_glove(self, recipe):
+        if recipe["name"] in self.gloves:
+            messagebox.showinfo("Gloves", f"You already own {recipe['name']}.")
+            return
+        if self.money < recipe["cost"]:
+            messagebox.showerror("Gloves", "Not enough money.")
+            return
+
+        # Check required auras exist in inventory
+        inv_copy = [dict(item) for item in self.inventory]
+        for aura_name, rarity in recipe["required_auras"]:
+            found = False
+            for item in inv_copy:
+                if item["aura"] == aura_name and item["rarity"] == rarity and item["count"] > 0:
+                    item["count"] -= 1
+                    found = True
+                    break
+            if not found:
+                messagebox.showerror("Gloves", f"Missing aura: {aura_name} ({rarity}).")
+                return
+
+        # Deduct money and auras
+        self.money -= recipe["cost"]
+        self.inventory = [item for item in inv_copy if item["count"] > 0]
+        self.gloves.append(recipe["name"])
+        self.update_stats()
+        self.update_money_label()
+        self.save_game()
+        messagebox.showinfo("Gloves", f"Crafted {recipe['name']}!")
+
+    # ===== Inventory window =====
+    def open_inventory_window(self):
+        win = tk.Toplevel(self.root)
+        win.title("Inventory")
+        win.geometry("400x280")
+        win.resizable(False, False)
+
+        frame = tk.Frame(win)
+        frame.pack(fill="both", expand=True, padx=8, pady=8)
+
+        info_label = tk.Label(frame, text="All auras you have rolled (name, rarity, count):")
+        info_label.pack(pady=(0, 5), anchor="w")
+
+        list_frame = tk.Frame(frame)
+        list_frame.pack(fill="both", expand=True)
+
+        scrollbar = ttk.Scrollbar(list_frame, orient="vertical")
+        scrollbar.pack(side="right", fill="y")
+
+        listbox = tk.Listbox(list_frame, yscrollcommand=scrollbar.set)
+        listbox.pack(side="left", fill="both", expand=True)
+        scrollbar.config(command=listbox.yview)
+
+        def rarity_sort_key(item):
+            idx = self.rarity_index(item["rarity"])
+            return (idx if idx is not None else -1, item["aura"])
+
+        sorted_inv = sorted(self.inventory, key=rarity_sort_key)
+
+        if not sorted_inv:
+            listbox.insert("end", "No auras yet. Start rolling!")
+        else:
+            for item in sorted_inv:
+                text = f'{item["aura"]}  |  {item["rarity"]}  |  x{item["count"]}'
+                listbox.insert("end", text)
+
+        close_btn = tk.Button(frame, text="Close", command=win.destroy)
+        close_btn.pack(pady=6)
+
+    # ===== Cutscene for Mythic+ =====
+    def show_cutscene(self, aura_name, rarity):
+        overlay = tk.Toplevel(self.root)
+        overlay.title("")
+        overlay.attributes("-fullscreen", True)
+        overlay.configure(bg="black")
+        overlay.attributes("-topmost", True)
+
+        label = tk.Label(
+            overlay,
+            text=f"{rarity} FOUND!\n{aura_name}",
+            fg="white",
+            bg="black",
+            font=("Helvetica", 32, "bold")
+        )
+        label.pack(expand=True)
+
+        overlay.bind("<Button-1>", lambda e: overlay.destroy())
+        overlay.bind("<Escape>", lambda e: overlay.destroy())
+
+        overlay.after(2500, overlay.destroy)
+
+    # ===== Core game =====
+    def roll(self):
+        self.total_rolls += 1
+
+        # Decide rarity: DEV potion overrides everything
+        if self.dev_potion_next_roll_dev:
+            rarity = "DEV"
+            boost_used = 1.0
+            self.dev_potion_next_roll_dev = False
+        else:
+            boost_used = self.luck_boost_factor_next_roll
+            if self.custom_luck_enabled:
+                boost_used *= self.custom_luck_value
+            rarity = choose_rarity(boost_factor=boost_used)
+
+        odds = odds_for_rarity(rarity, boost_factor=boost_used)
+
+        # one-shot boost applies only to this roll
+        self.luck_boost_factor_next_roll = 1.0
+
+        aura_list = AURAS.get(rarity, ["Unknown"])
+        aura_name = random.choice(aura_list)
+
+        self.add_to_inventory(aura_name, rarity)
+
+        self.last_aura_var.set(f"Last Aura: {aura_name}")
+        self.last_rarity_var.set(f"Rarity: {rarity}")
+        if odds is not None:
+            self.last_odds_var.set(f"Odds: 1 in {odds}")
+        else:
+            self.last_odds_var.set("Odds: -")
+
+        if self.is_rarity_better(rarity):
+            self.best_rarity_index = self.rarity_index(rarity)
+            self.best_aura = aura_name
+
+        # Mythic+ (Mythic, Divine, DEV) cutscene
+        if rarity in ("Mythic", "Divine", "DEV"):
+            if self.autoroll_enabled:
+                self.autoroll_enabled = False
+                self.stop_autoroll()
+            self.show_cutscene(aura_name, rarity)
+
+        self.update_stats()
+        self.save_game()
+
+    def update_stats(self):
+        self.total_rolls_var.set(f"Total Rolls: {self.total_rolls}")
+        self.best_aura_var.set(f"Best Aura: {self.best_aura}")
+        if self.best_rarity_index is None:
+            self.best_rarity_var.set("Best Rarity: None")
+        else:
+            self.best_rarity_var.set(f"Best Rarity: {RARITIES[self.best_rarity_index][0]}")
+
+    def on_close(self):
+        self.stop_autoroll()
+        self.save_game()
+        self.root.destroy()
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    game = RNGGame(root)
+    root.mainloop()
