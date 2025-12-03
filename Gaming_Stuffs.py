@@ -960,24 +960,50 @@ plain_label.pack(anchor="w", padx=8)
 plain_entry = tk.Entry(encrypt_frame, width=40)
 plain_entry.pack(padx=8, pady=3)
 
-encrypt_result_nums_var = tk.StringVar(value="Encrypted numbers: ")
-encrypt_result_text_var = tk.StringVar(value="Encrypted text: ")
+# Encrypted outputs (copyable)
+encrypt_nums_label = tk.Label(encrypt_frame, text="Encrypted numbers:")
+encrypt_nums_label.pack(anchor="w", padx=8, pady=(6, 0))
+encrypt_nums_entry = tk.Entry(encrypt_frame, width=40, state="readonly")
+encrypt_nums_entry.pack(padx=8, pady=2)
 
-encrypt_result_nums_label = tk.Label(
-    encrypt_frame, textvariable=encrypt_result_nums_var, anchor="w", justify="left"
-)
-encrypt_result_nums_label.pack(fill="x", padx=8, pady=(6, 0))
+encrypt_text_label = tk.Label(encrypt_frame, text="Encrypted text:")
+encrypt_text_label.pack(anchor="w", padx=8, pady=(4, 0))
+encrypt_text_entry = tk.Entry(encrypt_frame, width=40, state="readonly")
+encrypt_text_entry.pack(padx=8, pady=2)
 
-encrypt_result_text_label = tk.Label(
-    encrypt_frame, textvariable=encrypt_result_text_var, anchor="w", justify="left"
+def set_readonly(entry, value: str):
+    entry.config(state="normal")
+    entry.delete(0, tk.END)
+    entry.insert(0, value)
+    entry.config(state="readonly")
+
+def copy_to_clipboard(value: str):
+    if not value:
+        return
+    root.clipboard_clear()
+    root.clipboard_append(value)
+
+def copy_encrypt_nums():
+    copy_to_clipboard(encrypt_nums_entry.get())
+
+def copy_encrypt_text():
+    copy_to_clipboard(encrypt_text_entry.get())
+
+copy_encrypt_nums_button = tk.Button(
+    encrypt_frame, text="Copy numbers", command=copy_encrypt_nums
 )
-encrypt_result_text_label.pack(fill="x", padx=8, pady=(0, 6))
+copy_encrypt_nums_button.pack(pady=(0, 2))
+
+copy_encrypt_text_button = tk.Button(
+    encrypt_frame, text="Copy text", command=copy_encrypt_text
+)
+copy_encrypt_text_button.pack(pady=(0, 8))
 
 def do_encrypt():
     txt = plain_entry.get()
     nums, letters = double_encrypt(txt)
-    encrypt_result_nums_var.set(f"Encrypted numbers: {nums}")
-    encrypt_result_text_var.set(f"Encrypted text: {letters}")
+    set_readonly(encrypt_nums_entry, nums)
+    set_readonly(encrypt_text_entry, letters)
 
 encrypt_button = tk.Button(encrypt_frame, text="Encrypt plain text", command=do_encrypt)
 encrypt_button.pack(pady=(2, 10))
@@ -989,24 +1015,38 @@ decrypt_label.pack(anchor="w", padx=8)
 decrypt_entry = tk.Entry(encrypt_frame, width=40)
 decrypt_entry.pack(padx=8, pady=3)
 
-decrypt_result_nums_var = tk.StringVar(value="Decrypted numbers: ")
-decrypt_result_text_var = tk.StringVar(value="Decrypted text: ")
+# Decrypted outputs (copyable)
+decrypt_nums_label = tk.Label(encrypt_frame, text="Decrypted numbers:")
+decrypt_nums_label.pack(anchor="w", padx=8, pady=(6, 0))
+decrypt_nums_entry = tk.Entry(encrypt_frame, width=40, state="readonly")
+decrypt_nums_entry.pack(padx=8, pady=2)
 
-decrypt_result_nums_label = tk.Label(
-    encrypt_frame, textvariable=decrypt_result_nums_var, anchor="w", justify="left"
-)
-decrypt_result_nums_label.pack(fill="x", padx=8, pady=(6, 0))
+decrypt_text_label = tk.Label(encrypt_frame, text="Decrypted text:")
+decrypt_text_label.pack(anchor="w", padx=8, pady=(4, 0))
+decrypt_text_entry = tk.Entry(encrypt_frame, width=40, state="readonly")
+decrypt_text_entry.pack(padx=8, pady=2)
 
-decrypt_result_text_label = tk.Label(
-    encrypt_frame, textvariable=decrypt_result_text_var, anchor="w", justify="left"
+def copy_decrypt_nums():
+    copy_to_clipboard(decrypt_nums_entry.get())
+
+def copy_decrypt_text():
+    copy_to_clipboard(decrypt_text_entry.get())
+
+copy_decrypt_nums_button = tk.Button(
+    encrypt_frame, text="Copy numbers", command=copy_decrypt_nums
 )
-decrypt_result_text_label.pack(fill="x", padx=8, pady=(0, 6))
+copy_decrypt_nums_button.pack(pady=(0, 2))
+
+copy_decrypt_text_button = tk.Button(
+    encrypt_frame, text="Copy text", command=copy_decrypt_text
+)
+copy_decrypt_text_button.pack(pady=(0, 8))
 
 def do_decrypt():
     nums_str = decrypt_entry.get()
     base_nums, letters = double_decrypt(nums_str)
-    decrypt_result_nums_var.set(f"Decrypted numbers: {base_nums}")
-    decrypt_result_text_var.set(f"Decrypted text: {letters}")
+    set_readonly(decrypt_nums_entry, base_nums)
+    set_readonly(decrypt_text_entry, letters)
 
 decrypt_button = tk.Button(encrypt_frame, text="Decrypt numbers", command=do_decrypt)
 decrypt_button.pack(pady=(2, 10))
