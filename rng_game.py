@@ -6,7 +6,7 @@ from tkinter import ttk, messagebox
 import time
 
 # ===== Version for this script =====
-VERSION = "1.1"  # bump this when you change rng_game.py
+VERSION = "1.2"  # bump this when you change rng_game.py
 
 # ===== Configuration =====
 # Rarity tiers and base odds: 1 in X
