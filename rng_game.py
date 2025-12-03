@@ -6,7 +6,7 @@ from tkinter import ttk, messagebox
 import time
 
 # ===== Version for this script =====
-VERSION = "1.5"  # bump this when you change rng_game.py
+VERSION = "2.0"
 
 # ===== Configuration =====
 # Rarity tiers and base odds: 1 in X
@@ -18,9 +18,10 @@ RARITIES = [
     ("Legendary", 2500),
     ("Mythic",    100000),
     ("Divine",    1000000000),
+    ("DEV",       1000000000000),  # ultra rare dev-only rarity
 ]
 
-# Aura names per rarity (your edited list, fixed keys)
+# Aura names per rarity (your edited list + DEV)
 AURAS = {
     "Common":    ["Common", "Uncommon", "Rare", "Crystallised"],
     "Uncommon":  ["Powered", "Undead", "Siderium", "Storm"],
@@ -29,6 +30,7 @@ AURAS = {
     "Legendary": ["Poisoned", "Celestial", "Prism"],
     "Mythic":    ["Archangel", "Memory", "Perplexed"],
     "Divine":    ["Perplexed: Pixels", "Oblivion", "Luminosity"],
+    "DEV":       ["DEV"],   # single dev-only aura
 }
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -43,29 +45,65 @@ ROLL_INTERVAL_SEC = 0.5        # autoroll speed (seconds)
 
 SECRET_CODE = "1028777"
 
+# Money for selling auras
+PRICE_PER_RARITY = {
+    "Common": 1,
+    "Uncommon": 5,
+    "Rare": 25,
+    "Epic": 100,
+    "Legendary": 500,
+    "Mythic": 5000,
+    "Divine": 25000,
+    "DEV": 0,  # cannot sell DEV
+}
+
+# Glove recipes (crafting)
+GLOVE_RECIPES = [
+    {
+        "name": "Celestial Glove",
+        "cost": 10000,
+        "required_auras": [("Celestial", "Legendary")],
+    },
+    {
+        "name": "Mythic Glove",
+        "cost": 25000,
+        "required_auras": [("Archangel", "Mythic"), ("Memory", "Mythic")],
+    },
+    {
+        "name": "Divine Glove",
+        "cost": 100000,
+        "required_auras": [("Perplexed: Pixels", "Divine")],
+    },
+    {
+        "name": "Admin Glove",
+        "cost": 0,
+        "required_auras": [("DEV", "DEV")],  # only from DEV aura
+    },
+]
+
 
 # ===== RNG helpers =====
-def build_weights(boost_factor=1):
+def build_weights(boost_factor=1.0):
     weights = []
     for name, one_in in RARITIES:
-        if boost_factor > 1 and name != "Common":
-            weights.append(1 / max(1, one_in // boost_factor))
+        if boost_factor > 1 and name not in ("Common", "DEV"):
+            weights.append(1 / max(1, one_in // int(boost_factor)))
         else:
             weights.append(1 / one_in)
     total = sum(weights)
     probs = [w / total for w in weights]
     return probs
 
-def choose_rarity(boost_factor=1):
+def choose_rarity(boost_factor=1.0):
     r_names = [r[0] for r in RARITIES]
     rarity = random.choices(r_names, weights=build_weights(boost_factor), k=1)[0]
     return rarity
 
-def odds_for_rarity(rarity_name, boost_factor=1):
+def odds_for_rarity(rarity_name, boost_factor=1.0):
     for name, one_in in RARITIES:
         if name == rarity_name:
-            if boost_factor > 1 and name != "Common":
-                return max(1, one_in // boost_factor)
+            if boost_factor > 1 and name not in ("Common", "DEV"):
+                return max(1, one_in // int(boost_factor))
             return one_in
     return None
 
@@ -74,7 +112,7 @@ class RNGGame:
     def __init__(self, root):
         self.root = root
         self.root.title("RNG Game")
-        self.root.geometry("540x440")
+        self.root.geometry("560x480")
         self.root.resizable(False, False)
 
         # Game state
@@ -83,10 +121,21 @@ class RNGGame:
         self.best_aura = "None"
         self.inventory = []
 
+        # Currency and gloves
+        self.money = 0
+        self.gloves = []  # list of glove names
+
         # Potion system
         self.last_used_potion_time = 0
         self.last_used_celestial_potion_time = 0
-        self.luck_boost_factor_next_roll = 1
+        self.luck_boost_factor_next_roll = 1.0
+
+        # Custom luck (persistent until disabled)
+        self.custom_luck_enabled = False
+        self.custom_luck_value = 1.0
+
+        # Dev potion (guarantees DEV aura next roll)
+        self.dev_potion_next_roll_dev = False
 
         # Autoroll system
         self.autoroll_enabled = False
@@ -101,12 +150,21 @@ class RNGGame:
         # Dev tools fields
         self.autoroll_interval_var = tk.StringVar(value=str(ROLL_INTERVAL_SEC))
         self.custom_luck_var = tk.StringVar(value="1")
+        self.custom_luck_status_var = tk.StringVar(value="Custom luck: OFF")
+
+        # UI stats vars
+        self.total_rolls_var = tk.StringVar()
+        self.best_aura_var = tk.StringVar()
+        self.best_rarity_var = tk.StringVar()
+        self.money_var = tk.StringVar()
 
         self.load_game()
         self.build_ui()
         self.check_potion_cooldown()
         self.check_celestial_potion_cooldown()
         self.update_stats()
+        self.update_money_label()
+        self.update_custom_luck_status()
 
     # ===== Save / load =====
     def load_game(self):
@@ -129,7 +187,8 @@ class RNGGame:
         self.inventory = data.get("inventory", [])
         self.last_used_potion_time = float(data.get("last_used_potion_time", 0))
         self.last_used_celestial_potion_time = float(data.get("last_used_celestial_potion_time", 0))
-        # autoroll state is not persisted on purpose (always off on start)
+        self.money = int(data.get("money", 0))
+        self.gloves = data.get("gloves", [])
 
     def save_game(self):
         try:
@@ -143,6 +202,8 @@ class RNGGame:
                 "inventory": self.inventory,
                 "last_used_potion_time": self.last_used_potion_time,
                 "last_used_celestial_potion_time": self.last_used_celestial_potion_time,
+                "money": self.money,
+                "gloves": self.gloves,
                 "rng_game_version": VERSION,
             }
             with open(SAVE_PATH, "w") as f:
@@ -158,7 +219,7 @@ class RNGGame:
         title = tk.Label(main, text=f"RNG Roll Game (v{VERSION})", font=("Helvetica", 16, "bold"))
         title.pack(pady=(0, 10))
 
-        # Row 1: roll + inventory
+        # Row 1: roll + inventory + sell
         row1 = tk.Frame(main)
         row1.pack()
 
@@ -167,6 +228,9 @@ class RNGGame:
 
         inv_btn = tk.Button(row1, text="View Inventory", font=("Helvetica", 10), command=self.open_inventory_window)
         inv_btn.pack(side="left", padx=3)
+
+        sell_btn = tk.Button(row1, text="Sell All", font=("Helvetica", 10), command=self.sell_all_auras)
+        sell_btn.pack(side="left", padx=3)
 
         # Row 2: potions
         row2 = tk.Frame(main)
@@ -217,13 +281,22 @@ class RNGGame:
         sep = ttk.Separator(main, orient="horizontal")
         sep.pack(fill="x", pady=8)
 
-        self.total_rolls_var = tk.StringVar()
-        self.best_aura_var = tk.StringVar()
-        self.best_rarity_var = tk.StringVar()
-
         tk.Label(main, textvariable=self.total_rolls_var).pack()
         tk.Label(main, textvariable=self.best_aura_var).pack()
         tk.Label(main, textvariable=self.best_rarity_var).pack()
+        tk.Label(main, textvariable=self.money_var).pack(pady=(2, 0))
+
+        # Custom luck status label
+        tk.Label(main, textvariable=self.custom_luck_status_var, fg="orange").pack(pady=(4, 0))
+
+        # Glove shop button
+        shop_btn = tk.Button(
+            main,
+            text="Open Glove Shop",
+            font=("Helvetica", 10),
+            command=self.open_glove_shop
+        )
+        shop_btn.pack(pady=(4, 2))
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -317,7 +390,7 @@ class RNGGame:
     def open_special_gui(self):
         win = tk.Toplevel(self.root)
         win.title("dev tools :3")
-        win.geometry("430x340")
+        win.geometry("460x380")
         win.resizable(False, False)
 
         frame = tk.Frame(win)
@@ -356,13 +429,21 @@ class RNGGame:
         )
         insane_btn.pack(side="left", padx=4)
 
-        # Custom luck multiplier
+        # Dev potion (DEV aura for next roll)
+        dev_btn = tk.Button(
+            frame,
+            text="Use DEV Potion (next roll = DEV)",
+            command=self.use_dev_potion
+        )
+        dev_btn.pack(pady=(4, 4))
+
+        # Custom luck multiplier (persistent)
         luck_frame = tk.Frame(frame)
         luck_frame.pack(pady=(6, 2))
 
         tk.Label(
             luck_frame,
-            text="Custom luck multiplier for next roll:"
+            text="Custom luck multiplier:"
         ).pack(side="left")
 
         luck_entry = tk.Entry(
@@ -374,14 +455,21 @@ class RNGGame:
 
         apply_luck_btn = tk.Button(
             luck_frame,
-            text="Apply",
+            text="Enable/Update",
             command=self.apply_custom_luck
         )
         apply_luck_btn.pack(side="left")
 
+        disable_luck_btn = tk.Button(
+            frame,
+            text="Disable Custom Luck",
+            command=self.disable_custom_luck
+        )
+        disable_luck_btn.pack(pady=(2, 6))
+
         # Autoroll row
         btn_row2 = tk.Frame(frame)
-        btn_row2.pack(pady=(8, 4))
+        btn_row2.pack(pady=(4, 4))
 
         autoroll_toggle_btn = tk.Button(
             btn_row2,
@@ -428,20 +516,36 @@ class RNGGame:
         self.luck_boost_factor_next_roll = INSANE_BOOST_FACTOR
         messagebox.showinfo("Insane Boost", "Next roll will use the insane multiplier!")
 
+    def use_dev_potion(self):
+        self.dev_potion_next_roll_dev = True
+        messagebox.showinfo("DEV Potion", "Next roll will be the DEV aura.")
+
     def apply_custom_luck(self):
         try:
             value = float(self.custom_luck_var.get())
             if value <= 0:
                 raise ValueError
-            if value > INSANE_BOOST_FACTOR:
-                value = INSANE_BOOST_FACTOR
-            self.luck_boost_factor_next_roll = value
+            self.custom_luck_value = value
+            self.custom_luck_enabled = True
+            self.update_custom_luck_status()
             messagebox.showinfo(
                 "Custom Luck",
-                f"Next roll will use x{value:g} luck multiplier."
+                f"Custom luck enabled: x{value:g} (applies to every roll until disabled)."
             )
         except ValueError:
             messagebox.showerror("Custom Luck", "Enter a positive number (e.g. 2, 10, 100).")
+
+    def disable_custom_luck(self):
+        self.custom_luck_enabled = False
+        self.custom_luck_value = 1.0
+        self.update_custom_luck_status()
+        messagebox.showinfo("Custom Luck", "Custom luck disabled.")
+
+    def update_custom_luck_status(self):
+        if self.custom_luck_enabled:
+            self.custom_luck_status_var.set(f"Custom luck: ON (x{self.custom_luck_value:g})")
+        else:
+            self.custom_luck_status_var.set("Custom luck: OFF")
 
     def apply_autoroll_interval(self):
         global ROLL_INTERVAL_SEC
@@ -510,11 +614,101 @@ class RNGGame:
                 return
         self.inventory.append({"aura": aura_name, "rarity": rarity, "count": 1})
 
+    # ===== Money / Selling =====
+    def sell_all_auras(self):
+        total = 0
+        for item in self.inventory:
+            rarity = item["rarity"]
+            count = item["count"]
+            price = PRICE_PER_RARITY.get(rarity, 0)
+            total += price * count
+        if total == 0:
+            messagebox.showinfo("Sell", "You have no auras to sell.")
+            return
+        if not messagebox.askyesno("Sell", f"Sell all auras for {total} coins?"):
+            return
+        self.money += total
+        self.inventory.clear()
+        self.update_stats()
+        self.update_money_label()
+        self.save_game()
+        messagebox.showinfo("Sell", f"Sold all auras for {total} coins.")
+
+    def update_money_label(self):
+        self.money_var.set(f"Money: {self.money}")
+
+    # ===== Glove shop =====
+    def open_glove_shop(self):
+        win = tk.Toplevel(self.root)
+        win.title("Glove Shop")
+        win.geometry("460x300")
+        win.resizable(False, False)
+
+        frame = tk.Frame(win)
+        frame.pack(fill="both", expand=True, padx=8, pady=8)
+
+        tk.Label(frame, text=f"Money: {self.money}").pack(anchor="w")
+
+        tk.Label(frame, text="Available gloves:").pack(anchor="w", pady=(4, 2))
+
+        for recipe in GLOVE_RECIPES:
+            text = f'{recipe["name"]} - Cost: {recipe["cost"]} coins, Needs: '
+            need_parts = []
+            for aura_name, rarity in recipe["required_auras"]:
+                need_parts.append(f'{aura_name} ({rarity})')
+            text += ", ".join(need_parts)
+
+            row = tk.Frame(frame)
+            row.pack(fill="x", pady=2)
+
+            tk.Label(row, text=text, wraplength=380, justify="left").pack(side="left", expand=True)
+
+            btn = tk.Button(
+                row,
+                text="Craft",
+                command=lambda r=recipe: self.craft_glove(r)
+            )
+            btn.pack(side="right")
+
+        tk.Label(frame, text="Owned gloves:").pack(anchor="w", pady=(8, 2))
+        gloves_text = ", ".join(self.gloves) if self.gloves else "None"
+        tk.Label(frame, text=gloves_text, wraplength=380, justify="left").pack(anchor="w")
+
+    def craft_glove(self, recipe):
+        if recipe["name"] in self.gloves:
+            messagebox.showinfo("Gloves", f"You already own {recipe['name']}.")
+            return
+        if self.money < recipe["cost"]:
+            messagebox.showerror("Gloves", "Not enough money.")
+            return
+
+        # Check required auras exist in inventory
+        inv_copy = [dict(item) for item in self.inventory]
+        for aura_name, rarity in recipe["required_auras"]:
+            found = False
+            for item in inv_copy:
+                if item["aura"] == aura_name and item["rarity"] == rarity and item["count"] > 0:
+                    item["count"] -= 1
+                    found = True
+                    break
+            if not found:
+                messagebox.showerror("Gloves", f"Missing aura: {aura_name} ({rarity}).")
+                return
+
+        # Deduct money and auras
+        self.money -= recipe["cost"]
+        self.inventory = [item for item in inv_copy if item["count"] > 0]
+        self.gloves.append(recipe["name"])
+        self.update_stats()
+        self.update_money_label()
+        self.save_game()
+        messagebox.showinfo("Gloves", f"Crafted {recipe['name']}!")
+
     # ===== Inventory window =====
     def open_inventory_window(self):
         win = tk.Toplevel(self.root)
         win.title("Inventory")
-        win.geometry("380x260")
+        win.geometry("400x280")
         win.resizable(False, False)
 
         frame = tk.Frame(win)
@@ -549,16 +743,47 @@ class RNGGame:
         close_btn = tk.Button(frame, text="Close", command=win.destroy)
         close_btn.pack(pady=6)
 
+    # ===== Cutscene for Mythic+ =====
+    def show_cutscene(self, aura_name, rarity):
+        overlay = tk.Toplevel(self.root)
+        overlay.title("")
+        overlay.attributes("-fullscreen", True)
+        overlay.configure(bg="black")
+        overlay.attributes("-topmost", True)
+
+        label = tk.Label(
+            overlay,
+            text=f"{rarity} FOUND!\n{aura_name}",
+            fg="white",
+            bg="black",
+            font=("Helvetica", 32, "bold")
+        )
+        label.pack(expand=True)
+
+        overlay.bind("<Button-1>", lambda e: overlay.destroy())
+        overlay.bind("<Escape>", lambda e: overlay.destroy())
+
+        overlay.after(2500, overlay.destroy)
+
     # ===== Core game =====
     def roll(self):
         self.total_rolls += 1
 
-        boost = self.luck_boost_factor_next_roll
-        rarity = choose_rarity(boost_factor=boost)
-        odds = odds_for_rarity(rarity, boost_factor=boost)
+        # Decide rarity: DEV potion overrides everything
+        if self.dev_potion_next_roll_dev:
+            rarity = "DEV"
+            boost_used = 1.0
+            self.dev_potion_next_roll_dev = False
+        else:
+            boost_used = self.luck_boost_factor_next_roll
+            if self.custom_luck_enabled:
+                boost_used *= self.custom_luck_value
+            rarity = choose_rarity(boost_factor=boost_used)
 
-        # boost applies only to this one roll
-        self.luck_boost_factor_next_roll = 1
+        odds = odds_for_rarity(rarity, boost_factor=boost_used)
+
+        # one-shot boost applies only to this roll
+        self.luck_boost_factor_next_roll = 1.0
 
         aura_list = AURAS.get(rarity, ["Unknown"])
         aura_name = random.choice(aura_list)
@@ -575,6 +800,13 @@ class RNGGame:
         if self.is_rarity_better(rarity):
             self.best_rarity_index = self.rarity_index(rarity)
             self.best_aura = aura_name
+
+        # Mythic+ (Mythic, Divine, DEV) cutscene
+        if rarity in ("Mythic", "Divine", "DEV"):
+            if self.autoroll_enabled:
+                self.autoroll_enabled = False
+                self.stop_autoroll()
+            self.show_cutscene(aura_name, rarity)
 
         self.update_stats()
         self.save_game()
