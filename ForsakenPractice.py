@@ -8,7 +8,7 @@ import random
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SAVE_PATH = os.path.join(BASE_DIR, "forsaken_practice_save.json")
 
-VERSION = "1.0.0"  # bump when you change this file
+VERSION = "1.1"  # bump when you change this file
 
 
 class ForsakenPracticeApp:
