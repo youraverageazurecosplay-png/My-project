@@ -6,7 +6,7 @@ from tkinter import ttk, messagebox
 import time
 
 # ===== Version for this script =====
-VERSION = "1.2"  # bump this when you change rng_game.py
+VERSION = "1.4"  # bump this when you change rng_game.py
 
 # ===== Configuration =====
 # Rarity tiers and base odds: 1 in X
@@ -20,7 +20,7 @@ RARITIES = [
     ("Divine",    1000000000),
 ]
 
-# Aura names per rarity (your edited list)
+# Aura names per rarity
 AURAS = {
     "Common":    ["Common", "Uncommon", "Rare", "Crystallised"],
     "Uncommon":  ["Powered", "Undead", "Siderium", "Storm"],
@@ -28,7 +28,7 @@ AURAS = {
     "Epic":      ["Eclipse", "Supernova", "Diaboli: Void"],
     "Legendary": ["Poisoned", "Celestial", "Prism"],
     "Mythic":    ["Archangel", "Memory", "Perplexed"],
-    "Mythic":    ["Perplexed: Pixels", "Oblivion", "Luminosity"],
+    "Divine":    ["Perplexed: Pixels", "Oblivion", "Luminosity"],
 }
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -37,7 +37,7 @@ SAVE_PATH = os.path.join(BASE_DIR, "rng_save.json")
 COOLDOWN_SECS = 10 * 60        # 10 minutes
 LUCK_BOOST_FACTOR = 15         # Normal potion
 CELESTIAL_BOOST_FACTOR = 100   # Celestial potion
-INSANE_BOOST_FACTOR = 100000000000000 # Secret insane multiplier
+INSANE_BOOST_FACTOR = 100000000000000  # Secret insane multiplier
 
 ROLL_INTERVAL_SEC = 0.5        # autoroll speed
 
@@ -74,7 +74,7 @@ class RNGGame:
     def __init__(self, root):
         self.root = root
         self.root.title("RNG Game")
-        self.root.geometry("540x400")
+        self.root.geometry("540x430")
         self.root.resizable(False, False)
 
         # Game state
@@ -97,6 +97,9 @@ class RNGGame:
         self.celestial_button = None
         self.countdown_var = tk.StringVar()
         self.celestial_countdown_var = tk.StringVar()
+
+        # Dev tools autoroll interval setting
+        self.autoroll_interval_var = tk.StringVar(value=str(ROLL_INTERVAL_SEC))
 
         self.load_game()
         self.build_ui()
@@ -313,7 +316,7 @@ class RNGGame:
     def open_special_gui(self):
         win = tk.Toplevel(self.root)
         win.title("dev tools :3")
-        win.geometry("420x260")
+        win.geometry("420x310")
         win.resizable(False, False)
 
         frame = tk.Frame(win)
@@ -362,6 +365,29 @@ class RNGGame:
         )
         autoroll_toggle_btn.pack(side="left", padx=4)
 
+        # Autoroll interval controls
+        autoroll_speed_frame = tk.Frame(frame)
+        autoroll_speed_frame.pack(pady=(4, 2))
+
+        tk.Label(
+            autoroll_speed_frame,
+            text="Autoroll interval (seconds):"
+        ).pack(side="left")
+
+        interval_entry = tk.Entry(
+            autoroll_speed_frame,
+            textvariable=self.autoroll_interval_var,
+            width=7
+        )
+        interval_entry.pack(side="left", padx=4)
+
+        apply_btn = tk.Button(
+            autoroll_speed_frame,
+            text="Apply",
+            command=self.apply_autoroll_interval
+        )
+        apply_btn.pack(side="left")
+
         close_btn = tk.Button(frame, text="Close", command=win.destroy)
         close_btn.pack(pady=8)
 
@@ -375,7 +401,23 @@ class RNGGame:
 
     def set_insane_multiplier(self):
         self.luck_boost_factor_next_roll = INSANE_BOOST_FACTOR
-        messagebox.showinfo("Insane Boost", "Next roll will use x10,000,000 multiplier!")
+        messagebox.showinfo("Insane Boost", "Next roll will use the insane multiplier!")
+
+    def apply_autoroll_interval(self):
+        global ROLL_INTERVAL_SEC
+        try:
+            value = float(self.autoroll_interval_var.get())
+            if value <= 0:
+                raise ValueError
+            if value < 0.01:
+                value = 0.01
+            ROLL_INTERVAL_SEC = value
+            messagebox.showinfo(
+                "Autoroll",
+                f"Autoroll interval set to {ROLL_INTERVAL_SEC:.3f} seconds."
+            )
+        except ValueError:
+            messagebox.showerror("Autoroll", "Enter a positive number in seconds.")
 
     # ===== Autoroll =====
     def toggle_autoroll(self):
